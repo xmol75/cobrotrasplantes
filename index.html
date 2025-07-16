@@ -144,7 +144,7 @@
 
             <!-- Contenido de la App -->
             <main id="app-content">
-                <!-- Controles: Filtros y Botón de Añadir -->
+                <!-- Controles: Filtros y Botones de Acción -->
                 <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
                     <!-- Filtros -->
                     <div id="filter-controls" class="flex items-center bg-gray-200 rounded-lg p-1">
@@ -152,11 +152,17 @@
                         <button data-filter="pending" class="filter-btn px-4 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200">Pendientes</button>
                         <button data-filter="paid" class="filter-btn px-4 py-1.5 text-sm font-semibold rounded-md transition-colors duration-200">Cobrados</button>
                     </div>
-                    <!-- Botón Añadir -->
-                    <button id="add-record-btn" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 transition duration-200 flex items-center w-full sm:w-auto justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                        Añadir Registro
-                    </button>
+                    <!-- Botones de Acción -->
+                    <div class="flex items-center gap-2">
+                         <button id="export-btn" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75 transition duration-200 flex items-center w-full sm:w-auto justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Exportar a Excel (.csv)
+                        </button>
+                        <button id="add-record-btn" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 transition duration-200 flex items-center w-full sm:w-auto justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            Añadir Registro
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Tabla de Registros -->
@@ -290,6 +296,7 @@
         let recordsCollectionRef = null;
         let unsubscribeRecords = null;
         let allRecords = [];
+        let filteredRecords = []; // Keep track of currently displayed records for export
         let currentFilter = 'all';
 
         // --- ELEMENTOS DEL DOM ---
@@ -308,6 +315,7 @@
         const registerError = document.getElementById('register-error');
         const tableLoader = document.getElementById('table-loader');
         const tableContainer = document.getElementById('table-container');
+        const exportBtn = document.getElementById('export-btn');
 
         // --- MANEJO DE AUTENTICACIÓN ---
         
@@ -577,8 +585,8 @@
         
         // --- RENDERIZADO Y FILTROS ---
         function renderFilteredRecords() {
-            let filtered = allRecords.filter(r => currentFilter === 'all' || (currentFilter === 'paid' && r.cobro) || (currentFilter === 'pending' && !r.cobro));
-            renderTable(filtered);
+            filteredRecords = allRecords.filter(r => currentFilter === 'all' || (currentFilter === 'paid' && r.cobro) || (currentFilter === 'pending' && !r.cobro));
+            renderTable(filteredRecords);
         }
 
         function renderTable(records) {
@@ -633,7 +641,7 @@
             }
         });
 
-        // --- FUNCIONES AUXILIARES ---
+        // --- FUNCIONES AUXILIARES Y EXPORTACIÓN ---
         const formatDate = (dateStr) => {
             if (!dateStr) return 'N/A';
             return new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(dateStr + 'T00:00:00'));
@@ -664,6 +672,48 @@
             });
         }
         
+        function exportToCsv(filename, rows) {
+            if (!rows || !rows.length) {
+                alert("No hay datos para exportar.");
+                return;
+            }
+            const separator = ';'; // Use semicolon for better Excel compatibility in Spain
+            const keys = Object.keys(rows[0]).filter(k => k !== 'id'); // Don't export the internal ID
+            const csvContent = [
+                // Headers
+                "Cobrado;Fecha;Acto;Nº Trasplante;Participación;Salida Fuera;Sitio;Comentarios",
+                // Rows
+                ...rows.map(row => {
+                    return [
+                        row.cobro ? 'Sí' : 'No',
+                        formatDate(row.fecha),
+                        `"${row.acto || ''}"`,
+                        `"${row.numeroTrasplante || ''}"`,
+                        `"${row.participacion || ''}"`,
+                        row.salidaFuera ? 'Sí' : 'No',
+                        `"${row.sitio || ''}"`,
+                        `"${(row.comentarios || '').replace(/"/g, '""')}"` // Escape double quotes
+                    ].join(separator);
+                })
+            ].join('\n');
+
+            const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' }); // \uFEFF for BOM
+            const link = document.createElement("a");
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        exportBtn.addEventListener('click', () => {
+            exportToCsv('registros_trasplantes.csv', filteredRecords);
+        });
+
         feather.replace();
     </script>
 </body>
