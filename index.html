@@ -45,6 +45,11 @@
             cursor: pointer;
             color: #6b7280; /* text-gray-500 */
         }
+        /* Estilo para input deshabilitado */
+        input:disabled {
+            background-color: #e5e7eb; /* bg-gray-200 */
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -309,7 +314,6 @@
         function initializeAuthListener() {
             onAuthStateChanged(auth, (user) => {
                 if (user && user.emailVerified) {
-                    // **SHARED DATABASE**: All users point to the same collection.
                     recordsCollectionRef = collection(db, `transplant_records`);
                     authContainer.classList.add('hidden');
                     appContainer.classList.remove('hidden');
@@ -387,7 +391,7 @@
             try {
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 await sendEmailVerification(userCredential.user);
-                await signOut(auth); // Desloguear para forzar verificación
+                await signOut(auth);
                 showLoginMessage("¡Registro completado! Revisa tu email para verificar tu cuenta antes de iniciar sesión.", "success");
                 registerForm.classList.add('hidden');
                 loginForm.classList.remove('hidden');
@@ -402,7 +406,7 @@
             e.preventDefault();
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
-            showLoginMessage('', 'error'); // Clear previous messages
+            showLoginMessage('', 'error');
 
             try {
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -410,7 +414,6 @@
                     await signOut(auth);
                     showLoginMessage("Debes verificar tu email para poder entrar. Revisa tu bandeja de entrada.", "error");
                 }
-                // onAuthStateChanged se encargará del resto si está verificado
             } catch (error) {
                 console.error("Error de inicio de sesión:", error.message);
                 showLoginMessage("Email o contraseña incorrectos.", "error");
@@ -442,7 +445,18 @@
         const recordIdInput = document.getElementById('record-id');
         const salidaFueraCheckbox = document.getElementById('salida-fuera');
         const sitioContainer = document.getElementById('sitio-container');
+        const actoSelect = document.getElementById('acto');
+        const numeroTrasplanteInput = document.getElementById('numero-trasplante');
 
+        function toggleNumeroTrasplanteField() {
+            const isTrasplante = actoSelect.value === 'Trasplante';
+            numeroTrasplanteInput.disabled = !isTrasplante;
+            if (!isTrasplante) {
+                numeroTrasplanteInput.value = ''; // Clear value if not a transplant
+            }
+        }
+
+        actoSelect.addEventListener('change', toggleNumeroTrasplanteField);
         salidaFueraCheckbox.addEventListener('change', () => {
             sitioContainer.classList.toggle('hidden', !salidaFueraCheckbox.checked);
         });
@@ -453,8 +467,8 @@
                 modalTitle.textContent = 'Editar Registro';
                 recordIdInput.value = record.id;
                 document.getElementById('fecha').value = record.fecha;
-                document.getElementById('acto').value = record.acto;
-                document.getElementById('numero-trasplante').value = record.numeroTrasplante;
+                actoSelect.value = record.acto;
+                numeroTrasplanteInput.value = record.numeroTrasplante;
                 document.getElementById('participacion').value = record.participacion;
                 salidaFueraCheckbox.checked = record.salidaFuera;
                 document.getElementById('sitio').value = record.sitio;
@@ -464,8 +478,10 @@
                 modalTitle.textContent = 'Añadir Nuevo Registro';
                 recordIdInput.value = '';
                 document.getElementById('fecha').valueAsDate = new Date();
+                actoSelect.value = 'Trasplante'; // Default value
             }
             
+            toggleNumeroTrasplanteField(); // Set initial state for the field
             sitioContainer.classList.toggle('hidden', !salidaFueraCheckbox.checked);
             
             recordModal.classList.remove('modal-hidden');
@@ -496,7 +512,6 @@
                 allRecords = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderFilteredRecords();
                 tableLoader.classList.add('hidden');
-                tableContainer.classList.remove('hidden');
             }, (error) => {
                 console.error("Error al obtener datos:", error);
                 tableLoader.innerHTML = `<p class="text-red-500">Error al cargar los datos. Revisa las reglas de seguridad de Firestore.</p>`;
@@ -513,8 +528,8 @@
             const recordData = {
                 cobro: document.getElementById('cobro').checked,
                 fecha: document.getElementById('fecha').value,
-                acto: document.getElementById('acto').value,
-                numeroTrasplante: document.getElementById('numero-trasplante').value,
+                acto: actoSelect.value,
+                numeroTrasplante: numeroTrasplanteInput.value,
                 participacion: document.getElementById('participacion').value,
                 salidaFuera: document.getElementById('salida-fuera').checked,
                 sitio: document.getElementById('salida-fuera').checked ? document.getElementById('sitio').value : '',
@@ -522,7 +537,6 @@
             };
             try {
                 if (id) {
-                    // Use setDoc for updates to overwrite the whole document, ensuring consistency
                     await setDoc(doc(recordsCollectionRef, id), recordData);
                 } else {
                     await addDoc(recordsCollectionRef, recordData);
@@ -555,14 +569,12 @@
 
         window.togglePaidStatus = async (id, currentStatus) => {
             try {
-                // Use updateDoc to change only a specific field
                 await updateDoc(doc(recordsCollectionRef, id), { cobro: !currentStatus });
             } catch (error) {
                 console.error("Error al cambiar estado de cobro:", error);
             }
         };
         
-
         // --- RENDERIZADO Y FILTROS ---
         function renderFilteredRecords() {
             let filtered = allRecords.filter(r => currentFilter === 'all' || (currentFilter === 'paid' && r.cobro) || (currentFilter === 'pending' && !r.cobro));
@@ -580,7 +592,6 @@
             } else {
                 noMsg.classList.add('hidden');
                 tableContainer.classList.remove('hidden');
-                // Ordenar por fecha, el más antiguo arriba
                 records.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
                 records.forEach(r => {
                     tableBody.innerHTML += `
@@ -592,7 +603,7 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">${formatDate(r.fecha)}</td>
                             <td class="px-6 py-4 whitespace-nowrap">${r.acto}</td>
-                            <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">${r.numeroTrasplante}</td>
+                            <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">${r.numeroTrasplante || 'N/A'}</td>
                             <td class="px-6 py-4 whitespace-nowrap">${r.participacion || 'N/A'}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-center">${r.salidaFuera ? 'Sí' : 'No'}</td>
                             <td class="px-6 py-4 whitespace-nowrap">${r.sitio || 'N/A'}</td>
@@ -633,7 +644,7 @@
             const isPassword = input.type === 'password';
             input.type = isPassword ? 'text' : 'password';
             iconElement.innerHTML = isPassword ? '<i data-feather="eye-off"></i>' : '<i data-feather="eye"></i>';
-            feather.replace(); // Re-render icons
+            feather.replace();
         };
 
         function showConfirmation(message) {
@@ -653,7 +664,6 @@
             });
         }
         
-        // Initial icon rendering
         feather.replace();
     </script>
 </body>
