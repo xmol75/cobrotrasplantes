@@ -114,29 +114,43 @@
             text-align: right;
         }
         
-        /* Botones flotantes en móvil */
+        /* Botón añadir responsive */
         @media (max-width: 640px) {
-            .floating-add-btn {
+            #add-record-btn {
                 position: fixed;
                 bottom: 1.5rem;
                 right: 1.5rem;
                 width: 56px;
                 height: 56px;
                 border-radius: 50%;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
                 z-index: 40;
-                padding: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
+                padding: 0 !important;
+                min-width: 56px;
             }
             
-            .floating-add-btn span {
-                display: none;
+            #add-record-btn span {
+                display: none !important;
             }
             
-            .floating-add-btn svg {
-                margin: 0;
+            #add-record-btn svg {
+                margin: 0 !important;
+            }
+        }
+        
+        /* Contador de registros con animación */
+        #records-counter {
+            animation: slideDown 0.3s ease-out;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
             }
         }
     </style>
@@ -225,15 +239,20 @@
                         </div>
                     </div></div>
                     
+                    <!-- Contador de registros -->
+                    <div id="records-counter" class="hidden bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm font-medium text-blue-800">
+                        <span id="counter-text"></span>
+                    </div>
+                    
                     <!-- Botones de Acción -->
                     <div class="flex flex-col sm:flex-row gap-2 w-full">
                          <button id="export-btn" class="bg-green-600 text-white font-semibold py-2 px-3 sm:px-4 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75 transition duration-200 flex items-center w-full sm:w-auto justify-center text-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                             <span class="hidden sm:inline">Exportar a Excel (.csv)</span><span class="sm:hidden">Exportar CSV</span>
                         </button>
-                        <button id="add-record-btn" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 transition duration-200 flex items-center justify-center floating-add-btn">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                            Añadir Registro
+                        <button id="add-record-btn" class="bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 transition duration-200 flex items-center justify-center w-full sm:w-auto text-sm sm:text-base">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sm:mr-2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            <span class="hidden sm:inline">Añadir Registro</span>
                         </button>
                     </div>
                 </div>
@@ -642,11 +661,37 @@
                 
                 return matchesPaymentStatus && matchesYear && matchesOutside && matchesEcmo;
             });
+            
+            // Actualizar contador
+            updateRecordsCounter();
+            
             // Detectar si estamos en móvil
             if (window.innerWidth < 768) {
                 renderMobileCards(filteredRecords);
             } else {
                 renderTable(filteredRecords);
+            }
+        }
+        
+        function updateRecordsCounter() {
+            const counter = document.getElementById('records-counter');
+            const counterText = document.getElementById('counter-text');
+            
+            // Detectar si hay algún filtro activo
+            const hasActiveFilter = 
+                currentFilter !== 'all' || 
+                currentYearFilter !== 'all' || 
+                showOnlyOutside || 
+                showOnlyEcmo;
+            
+            if (hasActiveFilter) {
+                counter.classList.remove('hidden');
+                const count = filteredRecords.length;
+                const recordWord = count === 1 ? 'registro' : 'registros';
+                const totalRecords = allRecords.length;
+                counterText.textContent = `📊 ${count} ${recordWord} de ${totalRecords} total`;
+            } else {
+                counter.classList.add('hidden');
             }
         }
 
