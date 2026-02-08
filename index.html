@@ -642,12 +642,24 @@
                 
                 return matchesPaymentStatus && matchesYear && matchesOutside && matchesEcmo;
             });
-            renderTable(filteredRecords);
+            // Detectar si estamos en móvil
+            if (window.innerWidth < 768) {
+                renderMobileCards(filteredRecords);
+            } else {
+                renderTable(filteredRecords);
+            }
         }
 
         function renderTable(records) {
             const tableBody = document.getElementById('records-table-body');
             const noMsg = document.getElementById('no-records-message');
+            const mobileContainer = document.getElementById('mobile-cards-container');
+            
+            // Ocultar cards móviles en desktop
+            if (mobileContainer) {
+                mobileContainer.classList.add('hidden');
+            }
+            
             tableBody.innerHTML = '';
             if (records.length === 0) {
                 noMsg.classList.remove('hidden');
@@ -712,6 +724,9 @@
             const tableContainer = document.getElementById('table-container');
             const noMsg = document.getElementById('no-records-message');
             
+            // Ocultar tabla en móvil
+            tableContainer.classList.add('hidden');
+            
             // Buscar o crear el contenedor de cards móviles
             let mobileContainer = document.getElementById('mobile-cards-container');
             if (!mobileContainer) {
@@ -724,11 +739,32 @@
             mobileContainer.innerHTML = '';
             
             if (records.length === 0) {
-                mobileContainer.style.display = 'none';
+                mobileContainer.classList.add('hidden');
+                noMsg.classList.remove('hidden');
+                
+                let message = 'No hay registros';
+                if (currentFilter !== 'all') {
+                    message += ` ${currentFilter === 'paid' ? 'cobrados' : 'pendientes'}`;
+                }
+                if (showOnlyOutside) {
+                    message += ' con desplazamiento fuera';
+                }
+                if (showOnlyEcmo) {
+                    message += ' con ECMO';
+                }
+                if (currentYearFilter !== 'all') {
+                    message += ` para el año ${currentYearFilter}`;
+                }
+                message += '.';
+                noMsg.textContent = message;
                 return;
             }
             
-            mobileContainer.style.display = 'block';
+            noMsg.classList.add('hidden');
+            mobileContainer.classList.remove('hidden');
+            
+            // Ordenar del más nuevo al más antiguo
+            records.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
             
             records.forEach(r => {
                 const card = document.createElement('div');
@@ -773,7 +809,13 @@
             });
         }
 
-                document.getElementById('filter-controls').addEventListener('click', (e) => {
+        
+        // Listener para cambios de tamaño de ventana
+        window.addEventListener('resize', () => {
+            renderFilteredRecords();
+        });
+
+        document.getElementById('filter-controls').addEventListener('click', (e) => {
             if (e.target.matches('.filter-btn')) {
                 currentFilter = e.target.dataset.filter;
                 document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('filter-btn-active'));
